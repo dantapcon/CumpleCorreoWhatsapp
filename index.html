@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envío de Correos</title>
+    <title>Sistema de Cumpleaños Automático</title>
     <style>
         * {
             margin: 0;
@@ -15,19 +15,23 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 20px;
         }
 
         .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .card {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             padding: 40px;
-            width: 100%;
-            max-width: 500px;
             animation: slideUp 0.6s ease-out;
         }
 
@@ -46,15 +50,35 @@
             text-align: center;
             color: #333;
             margin-bottom: 30px;
-            font-size: 2.5em;
+            font-size: 2.2em;
             background: linear-gradient(135deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
         .form-group {
             margin-bottom: 20px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
         }
 
         label {
@@ -62,12 +86,12 @@
             margin-bottom: 8px;
             color: #555;
             font-weight: 600;
-            font-size: 1.1em;
+            font-size: 1em;
         }
 
-        input[type="email"],
         input[type="text"],
-        textarea {
+        input[type="email"],
+        input[type="date"] {
             width: 100%;
             padding: 15px;
             border: 2px solid #e1e5e9;
@@ -77,20 +101,12 @@
             background: #f8f9fa;
         }
 
-        input[type="email"]:focus,
-        input[type="text"]:focus,
-        textarea:focus {
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 20px rgba(102, 126, 234, 0.1);
             background: white;
             transform: translateY(-2px);
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 120px;
-            font-family: inherit;
         }
 
         .btn {
@@ -106,17 +122,12 @@
             transition: all 0.3s ease;
             text-transform: uppercase;
             letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
+            margin-bottom: 15px;
         }
 
         .btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn:active {
-            transform: translateY(-1px);
         }
 
         .btn:disabled {
@@ -125,10 +136,14 @@
             transform: none;
         }
 
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
         .status {
             margin-top: 20px;
             padding: 15px;
-            border-radius: 8px;
+            border-radius: 12px;
             text-align: center;
             font-weight: 600;
             display: none;
@@ -143,19 +158,25 @@
         .success {
             background: #d4edda;
             color: #155724;
-            border: 1px solid #c3e6cb;
+            border: 2px solid #c3e6cb;
         }
 
         .error {
             background: #f8d7da;
             color: #721c24;
-            border: 1px solid #f5c6cb;
+            border: 2px solid #f5c6cb;
         }
 
         .loading {
             background: #fff3cd;
             color: #856404;
-            border: 1px solid #ffeaa7;
+            border: 2px solid #ffeaa7;
+        }
+
+        .info {
+            background: #cce7ff;
+            color: #0066cc;
+            border: 2px solid #99d6ff;
         }
 
         .spinner {
@@ -174,190 +195,360 @@
             100% { transform: rotate(360deg); }
         }
 
-        .info {
-            background: #e3f2fd;
-            border: 1px solid #90caf9;
-            color: #1565c0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
+        .contact-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 20px;
+            background: #f8f9fa;
         }
 
-        .info strong {
-            display: block;
+        .contact-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s ease;
+        }
+
+        .contact-item:hover {
+            transform: translateX(5px);
+        }
+
+        .contact-birthday {
+            border-left-color: #ff6b6b !important;
+            background: #fff5f5 !important;
+        }
+
+        .contact-name {
+            font-weight: bold;
+            color: #333;
             margin-bottom: 5px;
         }
 
-        @media (max-width: 480px) {
+        .contact-email {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .contact-date {
+            color: #888;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .birthday-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
             .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .card {
                 padding: 30px 20px;
             }
             
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+            
             h1 {
-                font-size: 2em;
+                font-size: 1.8em;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📧 Envío de Correos</h1>
-        
-        <div class="info">
-            <strong>✅ Frontend Conectado:</strong>
-            Este frontend está configurado para comunicarse con el servidor Python Flask. Asegúrate de que el servidor esté ejecutándose en http://localhost:5000
+        <!-- Formulario de registro -->
+        <div class="card">
+            <h1>🎂 Sistema de Cumpleaños</h1>
+            
+            <form id="contactForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombre">👤 Nombre:</label>
+                        <input type="text" id="nombre" name="nombre" placeholder="María" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="apellido">👥 Apellido:</label>
+                        <input type="text" id="apellido" name="apellido" placeholder="García" required>
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="correo">📧 Correo Electrónico:</label>
+                    <input type="email" id="correo" name="correo" placeholder="maria@ejemplo.com" required>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="fechaNacimiento">🎂 Fecha de Nacimiento:</label>
+                    <input type="date" id="fechaNacimiento" name="fechaNacimiento" required>
+                </div>
+
+                <button type="submit" class="btn" id="registrarBtn">
+                    Registrar Contacto
+                </button>
+
+                <button type="button" class="btn btn-secondary" id="revisarBtn">
+                    🔍 Revisar Cumpleaños de Hoy
+                </button>
+            </form>
+
+            <div id="status" class="status"></div>
         </div>
 
-        <form id="emailForm">
-            <div class="form-group">
-                <label for="destinatario">📨 Correo Destinatario:</label>
-                <input 
-                    type="email" 
-                    id="destinatario" 
-                    name="destinatario" 
-                    placeholder="ejemplo@correo.com"
-                    required
-                >
+        <!-- Panel de contactos y estadísticas -->
+        <div class="card">
+            <h2>📊 Dashboard</h2>
+            
+            <div class="stats" id="statsContainer">
+                <div class="stat-card">
+                    <span class="stat-number" id="totalContactos">0</span>
+                    <span class="stat-label">Contactos</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number" id="cumpleañosHoy">0</span>
+                    <span class="stat-label">Cumpleaños Hoy</span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="asunto">📋 Asunto:</label>
-                <input 
-                    type="text" 
-                    id="asunto" 
-                    name="asunto" 
-                    placeholder="Feliz cumpleaños"
-                    value="Feliz cumpleaños"
-                    required
-                >
+            <h2>👥 Contactos Registrados</h2>
+            <div id="contactList" class="contact-list">
+                <p style="text-align: center; color: #666; padding: 20px;">
+                    No hay contactos registrados aún
+                </p>
             </div>
-
-            <div class="form-group">
-                <label for="mensaje">💬 Mensaje:</label>
-                <textarea 
-                    id="mensaje" 
-                    name="mensaje" 
-                    placeholder="Escribe tu mensaje aquí..."
-                    required
-                >Feliz cumpleaños</textarea>
-            </div>
-
-            <button type="submit" class="btn" id="enviarBtn">
-                Enviar Correo
-            </button>
-        </form>
-
-        <div id="status" class="status"></div>
+        </div>
     </div>
 
     <script>
-        const form = document.getElementById('emailForm');
+        const form = document.getElementById('contactForm');
         const statusDiv = document.getElementById('status');
-        const enviarBtn = document.getElementById('enviarBtn');
+        const registrarBtn = document.getElementById('registrarBtn');
+        const revisarBtn = document.getElementById('revisarBtn');
+        const contactList = document.getElementById('contactList');
+        const totalContactosSpan = document.getElementById('totalContactos');
+        const cumpleañosHoySpan = document.getElementById('cumpleañosHoy');
 
+        // Cargar contactos al iniciar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarContactos();
+        });
+
+        // Registrar nuevo contacto
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const destinatario = document.getElementById('destinatario').value;
-            const asunto = document.getElementById('asunto').value;
-            const mensaje = document.getElementById('mensaje').value;
+            const contactData = {
+                nombre: document.getElementById('nombre').value.trim(),
+                apellido: document.getElementById('apellido').value.trim(),
+                correo: document.getElementById('correo').value.trim(),
+                fechaNacimiento: document.getElementById('fechaNacimiento').value
+            };
 
-            // Mostrar estado de carga
-            showStatus('loading', '<span class="spinner"></span>Enviando correo...');
-            enviarBtn.disabled = true;
+            if (!validarDatos(contactData)) {
+                return;
+            }
 
-            // Simular el proceso de envío (aquí conectarías con tu backend)
+            showStatus('loading', '<span class="spinner"></span>Registrando contacto...');
+            registrarBtn.disabled = true;
+
             try {
-                // Datos del correo
-                const emailData = {
-                    destinatario: destinatario,
-                    asunto: asunto,
-                    mensaje: mensaje
-                };
+                const response = await fetch('/registrar-contacto', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(contactData)
+                });
 
-                console.log('Datos del correo a enviar:', emailData);
+                const result = await response.json();
 
-                // Simulación del envío (reemplaza esto con la llamada real a tu backend)
-                await simulateEmailSending(emailData);
-                
-                showStatus('success', '✅ ' + result.message || 'Correo enviado exitosamente!');
-                
-                // Limpiar solo el destinatario después del envío exitoso
-                document.getElementById('destinatario').value = '';
-                
+                if (response.ok) {
+                    showStatus('success', result.message);
+                    form.reset();
+                    cargarContactos(); // Actualizar la lista
+                } else {
+                    showStatus('error', result.error || 'Error al registrar contacto');
+                }
+
             } catch (error) {
-                showStatus('Enviado' );
+                showStatus('error', 'Error de conexión: ' + error.message);
             } finally {
-                enviarBtn.disabled = false;
+                registrarBtn.disabled = false;
             }
         });
 
+        // Revisar cumpleaños manualmente
+        revisarBtn.addEventListener('click', async function() {
+            showStatus('loading', '<span class="spinner"></span>Revisando cumpleaños...');
+            revisarBtn.disabled = true;
+
+            try {
+                const response = await fetch('/revisar-cumpleanos', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus('info', result.message);
+                    cargarContactos(); // Actualizar estadísticas
+                } else {
+                    showStatus('error', result.error || 'Error al revisar cumpleaños');
+                }
+
+            } catch (error) {
+                showStatus('error', 'Error de conexión: ' + error.message);
+            } finally {
+                revisarBtn.disabled = false;
+            }
+        });
+
+        // Cargar y mostrar contactos
+        async function cargarContactos() {
+            try {
+                const response = await fetch('/obtener-contactos');
+                const result = await response.json();
+
+                if (response.ok) {
+                    mostrarContactos(result.contactos);
+                    actualizarEstadisticas(result.estadisticas);
+                }
+
+            } catch (error) {
+                console.error('Error al cargar contactos:', error);
+            }
+        }
+
+        // Mostrar contactos en la interfaz
+        function mostrarContactos(contactos) {
+            if (!contactos || contactos.length === 0) {
+                contactList.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No hay contactos registrados aún</p>';
+                return;
+            }
+
+            const hoy = new Date().toISOString().slice(5, 10); // MM-DD
+
+            contactList.innerHTML = contactos.map(contacto => {
+                const fechaNac = new Date(contacto.fecha_nacimiento + 'T00:00:00');
+                const esCumpleañosHoy = contacto.fecha_nacimiento.slice(5) === hoy;
+                
+                return `
+                    <div class="contact-item ${esCumpleañosHoy ? 'contact-birthday' : ''}">
+                        <div class="contact-name">
+                            ${contacto.nombre} ${contacto.apellido}
+                            ${esCumpleañosHoy ? '<span class="birthday-badge">🎂 ¡Cumpleaños!</span>' : ''}
+                        </div>
+                        <div class="contact-email">${contacto.correo}</div>
+                        <div class="contact-date">
+                            Nacimiento: ${formatearFecha(fechaNac)} 
+                            (${calcularEdad(fechaNac)} años)
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Actualizar estadísticas
+        function actualizarEstadisticas(stats) {
+            totalContactosSpan.textContent = stats.total || 0;
+            cumpleañosHoySpan.textContent = stats.cumpleanos_hoy || 0;
+        }
+
+        // Validar datos del formulario
+        function validarDatos(data) {
+            if (!data.nombre || !data.apellido || !data.correo || !data.fechaNacimiento) {
+                showStatus('error', 'Todos los campos son obligatorios');
+                return false;
+            }
+
+            const fechaNac = new Date(data.fechaNacimiento);
+            const hoy = new Date();
+            
+            if (fechaNac >= hoy) {
+                showStatus('error', 'La fecha de nacimiento debe ser anterior a hoy');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Utilidades
         function showStatus(type, message) {
             statusDiv.className = `status ${type}`;
             statusDiv.innerHTML = message;
             statusDiv.style.display = 'block';
             
-            // Auto-ocultar después de 5 segundos para mensajes de éxito
-            if (type === 'success') {
+            if (type === 'success' || type === 'info') {
                 setTimeout(() => {
                     statusDiv.style.display = 'none';
                 }, 5000);
             }
         }
 
-        // Función real para enviar correo al backend de Python
-        async function simulateEmailSending(emailData) {
-            try {
-                console.log('📤 Enviando datos:', emailData);
-                
-                const response = await fetch('/enviar-correo', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(emailData)
-                });
-                
-                console.log('📥 Respuesta del servidor:', response.status, response.statusText);
-                
-                // Verificar si la respuesta está vacía
-                const responseText = await response.text();
-                console.log('📄 Texto de respuesta:', responseText);
-                
-                if (!responseText) {
-                    throw new Error('El servidor devolvió una respuesta vacía');
-                }
-                
-                let result;
-                try {
-                    result = JSON.parse(responseText);
-                } catch (jsonError) {
-                    console.error('❌ Error parsing JSON:', jsonError);
-                    console.error('📄 Respuesta recibida:', responseText);
-                    throw new Error(`Error del servidor: ${responseText.substring(0, 100)}...`);
-                }
-                
-                if (!response.ok) {
-                    throw new Error(result.error || `Error del servidor (${response.status})`);
-                }
-                
-                return result;
-                
-            } catch (error) {
-                console.error('💥 Error completo:', error);
-                
-                // Si hay error de conexión
-                if (error.name === 'TypeError' && error.message.includes('fetch')) {
-                    throw new Error('No se puede conectar con el servidor. ¿Está ejecutándose el servidor Python?');
-                }
-                
-                throw error;
-            }
+        function formatearFecha(fecha) {
+            return fecha.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
         }
 
-        // Animación adicional para los inputs
-        document.querySelectorAll('input, textarea').forEach(input => {
+        function calcularEdad(fechaNac) {
+            const hoy = new Date();
+            let edad = hoy.getFullYear() - fechaNac.getFullYear();
+            const mesActual = hoy.getMonth();
+            const diaActual = hoy.getDate();
+            
+            if (mesActual < fechaNac.getMonth() || 
+                (mesActual === fechaNac.getMonth() && diaActual < fechaNac.getDate())) {
+                edad--;
+            }
+            
+            return edad;
+        }
+
+        // Animaciones para inputs
+        document.querySelectorAll('input').forEach(input => {
             input.addEventListener('focus', function() {
                 this.parentElement.style.transform = 'scale(1.02)';
             });
