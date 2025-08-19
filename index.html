@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envío de Correos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        input[type="email"],
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        input[type="email"]:focus,
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.1);
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: inherit;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .info strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Envío de Correos</h1>
+        
+        <div class="info">
+            <strong>✅ Frontend Conectado:</strong>
+            Este frontend está configurado para comunicarse con el servidor Python Flask. Asegúrate de que el servidor esté ejecutándose en http://localhost:5000
+        </div>
+
+        <form id="emailForm">
+            <div class="form-group">
+                <label for="destinatario">📨 Correo Destinatario:</label>
+                <input 
+                    type="email" 
+                    id="destinatario" 
+                    name="destinatario" 
+                    placeholder="ejemplo@correo.com"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="asunto">📋 Asunto:</label>
+                <input 
+                    type="text" 
+                    id="asunto" 
+                    name="asunto" 
+                    placeholder="Feliz cumpleaños"
+                    value="Feliz cumpleaños"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="mensaje">💬 Mensaje:</label>
+                <textarea 
+                    id="mensaje" 
+                    name="mensaje" 
+                    placeholder="Escribe tu mensaje aquí..."
+                    required
+                >Feliz cumpleaños</textarea>
+            </div>
+
+            <button type="submit" class="btn" id="enviarBtn">
+                Enviar Correo
+            </button>
+        </form>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('emailForm');
+        const statusDiv = document.getElementById('status');
+        const enviarBtn = document.getElementById('enviarBtn');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const destinatario = document.getElementById('destinatario').value;
+            const asunto = document.getElementById('asunto').value;
+            const mensaje = document.getElementById('mensaje').value;
+
+            // Mostrar estado de carga
+            showStatus('loading', '<span class="spinner"></span>Enviando correo...');
+            enviarBtn.disabled = true;
+
+            // Simular el proceso de envío (aquí conectarías con tu backend)
+            try {
+                // Datos del correo
+                const emailData = {
+                    destinatario: destinatario,
+                    asunto: asunto,
+                    mensaje: mensaje
+                };
+
+                console.log('Datos del correo a enviar:', emailData);
+
+                // Simulación del envío (reemplaza esto con la llamada real a tu backend)
+                await simulateEmailSending(emailData);
+                
+                showStatus('success', '✅ ' + result.message || 'Correo enviado exitosamente!');
+                
+                // Limpiar solo el destinatario después del envío exitoso
+                document.getElementById('destinatario').value = '';
+                
+            } catch (error) {
+                showStatus('error', '❌ Error al enviar el correo: ' + error.message);
+            } finally {
+                enviarBtn.disabled = false;
+            }
+        });
+
+        function showStatus(type, message) {
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+            statusDiv.style.display = 'block';
+            
+            // Auto-ocultar después de 5 segundos para mensajes de éxito
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Función real para enviar correo al backend de Python
+        async function simulateEmailSending(emailData) {
+            try {
+                console.log('📤 Enviando datos:', emailData);
+                
+                const response = await fetch('/enviar-correo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(emailData)
+                });
+                
+                console.log('📥 Respuesta del servidor:', response.status, response.statusText);
+                
+                // Verificar si la respuesta está vacía
+                const responseText = await response.text();
+                console.log('📄 Texto de respuesta:', responseText);
+                
+                if (!responseText) {
+                    throw new Error('El servidor devolvió una respuesta vacía');
+                }
+                
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (jsonError) {
+                    console.error('❌ Error parsing JSON:', jsonError);
+                    console.error('📄 Respuesta recibida:', responseText);
+                    throw new Error(`Error del servidor: ${responseText.substring(0, 100)}...`);
+                }
+                
+                if (!response.ok) {
+                    throw new Error(result.error || `Error del servidor (${response.status})`);
+                }
+                
+                return result;
+                
+            } catch (error) {
+                console.error('💥 Error completo:', error);
+                
+                // Si hay error de conexión
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    throw new Error('No se puede conectar con el servidor. ¿Está ejecutándose el servidor Python?');
+                }
+                
+                throw error;
+            }
+        }
+
+        // Animación adicional para los inputs
+        document.querySelectorAll('input, textarea').forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'scale(1.02)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>
