@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 # Configuración del correo
 correo_origen = "dantapcon@gmail.com"
 contraseña = "tskk jlei hsms hedu"
-correo_destino = "djtapia7@espe.edu.ec"
+correo_destino = "danunitap@gmail.com"
 asunto = "Feliz cumpleaños"
 mensaje = "Feliz cumpleaños"
 
