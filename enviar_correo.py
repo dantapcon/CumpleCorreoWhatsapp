@@ -10,6 +10,10 @@ from datetime import datetime, date
 import threading
 import time
 import schedule
+import random
+from enviar_whatsapp import enviar_whatsapp_directo
+import webbrowser
+import urllib.parse
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +21,19 @@ CORS(app)
 # Configuración del correo
 CORREO_ORIGEN = "dantapcon@gmail.com"
 CONTRASEÑA = "tskk jlei hsms hedu"
+
+# Configuración de WhatsApp
+# Prefijos de países soportados explícitamente
+PREFIJOS_PAISES = {
+    'ES': '+34',   # España
+    'EC': '+593',  # Ecuador
+    'MX': '+52',   # México
+    'CO': '+57',   # Colombia
+    'AR': '+54',   # Argentina
+    'PE': '+51',   # Perú
+    'CL': '+56',   # Chile
+    'US': '+1'     # Estados Unidos
+}
 
 # Configuración de la base de datos
 DB_NAME = "cumpleanos.db"
@@ -33,6 +50,7 @@ def init_database():
             nombre TEXT NOT NULL,
             apellido TEXT NOT NULL,
             correo TEXT UNIQUE NOT NULL,
+            celular TEXT,
             fecha_nacimiento DATE NOT NULL,
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ultimo_correo_enviado DATE
@@ -62,6 +80,35 @@ def validar_email(email):
     patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(patron, email) is not None
 
+def validar_celular(celular):
+    """Validar y formatear número de celular"""
+    if not celular or celular.strip() == '':
+        return True, '', 'No se enviará mensaje de WhatsApp (número no proporcionado)'
+    
+    # Limpiar el número de espacios, guiones, paréntesis
+    celular_limpio = re.sub(r'[\s\-()]', '', celular)
+    
+    # Si ya tiene formato internacional, verificar que sea válido
+    if celular_limpio.startswith('+'):
+        if not re.match(r'^\+[1-9]\d{6,14}$', celular_limpio):
+            return False, '', f'Formato de número internacional incorrecto: {celular_limpio}'
+        return True, celular_limpio, f'Número internacional válido: {celular_limpio}'
+    
+    # Validar por país
+    if celular_limpio.startswith('09') and len(celular_limpio) >= 9:
+        # Ecuador: formato 09xxxxxxxx
+        return True, PREFIJOS_PAISES['EC'] + celular_limpio[1:], f'Formato Ecuador: {PREFIJOS_PAISES["EC"] + celular_limpio[1:]}'
+    
+    elif celular_limpio.startswith('6') or celular_limpio.startswith('7'):
+        # España: formato 6xxxxxxxx o 7xxxxxxxx
+        if len(celular_limpio) != 9:
+            return False, '', f'Los números de España deben tener 9 dígitos: {celular_limpio}'
+        return True, PREFIJOS_PAISES['ES'] + celular_limpio, f'Formato España: {PREFIJOS_PAISES["ES"] + celular_limpio}'
+    
+    else:
+        # Si no podemos determinar el formato, asumir España por defecto
+        return True, PREFIJOS_PAISES['ES'] + celular_limpio.lstrip('0'), f'Formato por defecto (España): {PREFIJOS_PAISES["ES"] + celular_limpio.lstrip("0")}'
+
 def enviar_correo(destinatario, asunto, mensaje):
     """Función para enviar correo electrónico"""
     try:
@@ -83,6 +130,21 @@ def enviar_correo(destinatario, asunto, mensaje):
     except Exception as e:
         return False, str(e)
 
+def enviar_whatsapp(numero, mensaje):
+    """
+    Función para enviar mensaje de WhatsApp.
+    Intenta primero el método directo (más confiable) y luego pywhatkit como respaldo.
+    """
+    try:
+        print(f"📱 Preparando envío de WhatsApp a {numero}...")
+        
+        # Usar nuestro método directo (más confiable)
+        return enviar_whatsapp_directo(numero, mensaje, PREFIJOS_PAISES)
+        
+    except Exception as e:
+        print(f"💥 Error al enviar WhatsApp: {str(e)}")
+        return False, f"Error al enviar WhatsApp: {str(e)}"
+
 def es_cumpleanos_hoy(fecha_nacimiento):
     """Verificar si una fecha de nacimiento corresponde a hoy"""
     hoy = date.today()
@@ -101,7 +163,7 @@ def calcular_edad(fecha_nacimiento):
     return edad
 
 def crear_mensaje_cumpleanos(nombre, apellido, edad):
-    """Crear mensaje personalizado de cumpleaños"""
+    """Crear mensaje personalizado de cumpleaños para correo"""
     return f"""¡Feliz Cumpleaños {nombre} {apellido}! 🎂
 
 ¡Esperamos que tengas un día maravilloso lleno de alegría y celebración!
@@ -116,6 +178,18 @@ Hoy cumples {edad} años y queremos desearte:
 
 Con cariño,
 Sistema Automático de Cumpleaños"""
+
+def crear_mensaje_whatsapp(nombre, apellido, edad):
+    """Crear mensaje personalizado de cumpleaños para WhatsApp"""
+    return f"""🎂 *¡FELIZ CUMPLEAÑOS {nombre.upper()}!* 🎂
+
+¡Hoy cumples *{edad} años* y queremos enviarte nuestros mejores deseos! 
+
+🎉 Que este día esté lleno de alegrías y sorpresas
+🎁 Que todos tus sueños se cumplan
+❤️ Mucha salud y prosperidad
+
+_Este mensaje fue enviado automáticamente por el Sistema de Cumpleaños_"""
 
 @app.route('/')
 def index():
@@ -162,6 +236,7 @@ def registrar_contacto():
         nombre = data.get('nombre', '').strip()
         apellido = data.get('apellido', '').strip()
         correo = data.get('correo', '').strip()
+        celular = data.get('celular', '').strip()
         fecha_nacimiento = data.get('fechaNacimiento', '').strip()
 
         # Validaciones
@@ -170,6 +245,14 @@ def registrar_contacto():
 
         if not validar_email(correo):
             return jsonify({'success': False, 'error': 'Email inválido'}), 400
+            
+        # Validar y formatear el número de celular
+        if celular and celular.strip():
+            valido, celular_formateado, mensaje_celular = validar_celular(celular)
+            if not valido:
+                return jsonify({'success': False, 'error': f'Número de celular inválido: {mensaje_celular}'}), 400
+            celular = celular_formateado
+            print(f"📱 Celular validado: {mensaje_celular}")
 
         # Verificar si ya existe el contacto
         conn = sqlite3.connect(DB_NAME)
@@ -181,9 +264,9 @@ def registrar_contacto():
 
         # Insertar contacto
         cursor.execute("""
-            INSERT INTO contactos (nombre, apellido, correo, fecha_nacimiento)
-            VALUES (?, ?, ?, ?)
-        """, (nombre, apellido, correo, fecha_nacimiento))
+            INSERT INTO contactos (nombre, apellido, correo, celular, fecha_nacimiento)
+            VALUES (?, ?, ?, ?, ?)
+        """, (nombre, apellido, correo, celular, fecha_nacimiento))
         
         contacto_id = cursor.lastrowid
         conn.commit()
@@ -193,21 +276,41 @@ def registrar_contacto():
 
         # Verificar si es cumpleaños hoy
         if es_cumpleanos_hoy(fecha_nacimiento):
-            print("🎂 ¡Es cumpleaños hoy! Enviando correo...")
+            print("🎂 ¡Es cumpleaños hoy! Enviando mensajes...")
             edad = calcular_edad(fecha_nacimiento)
             asunto = f"¡Feliz Cumpleaños {nombre}! 🎂"
-            mensaje = crear_mensaje_cumpleanos(nombre, apellido, edad)
+            mensaje_correo = crear_mensaje_cumpleanos(nombre, apellido, edad)
             
-            success, result = enviar_correo(correo, asunto, mensaje)
+            # Enviar correo electrónico
+            success_correo, result_correo = enviar_correo(correo, asunto, mensaje_correo)
             
-            if success:
+            # Inicializar variables para WhatsApp
+            success_whatsapp = False
+            result_whatsapp = "No se envió WhatsApp (celular no proporcionado)"
+            
+            # Enviar WhatsApp si hay un número de celular registrado
+            if celular and celular.strip():
+                mensaje_whatsapp = crear_mensaje_whatsapp(nombre, apellido, edad)
+                success_whatsapp, result_whatsapp = enviar_whatsapp(celular, mensaje_whatsapp)
+            
+            if success_correo or success_whatsapp:
                 # Registrar en historial
                 conn = sqlite3.connect(DB_NAME)
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
-                    VALUES (?, ?, ?, ?)
-                """, (contacto_id, 'cumpleanos', asunto, mensaje))
+                
+                # Registrar el correo enviado
+                if success_correo:
+                    cursor.execute("""
+                        INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                        VALUES (?, ?, ?, ?)
+                    """, (contacto_id, 'correo_cumpleanos', asunto, mensaje_correo))
+                
+                # Registrar el WhatsApp enviado
+                if success_whatsapp:
+                    cursor.execute("""
+                        INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                        VALUES (?, ?, ?, ?)
+                    """, (contacto_id, 'whatsapp_cumpleanos', 'Mensaje WhatsApp', mensaje_whatsapp))
                 
                 cursor.execute("""
                     UPDATE contactos SET ultimo_correo_enviado = ? WHERE id = ?
@@ -216,14 +319,20 @@ def registrar_contacto():
                 conn.commit()
                 conn.close()
                 
+                mensaje_respuesta = f'¡Contacto registrado!'
+                if success_correo:
+                    mensaje_respuesta += f' Correo de cumpleaños enviado a {nombre}.'
+                if success_whatsapp:
+                    mensaje_respuesta += f' WhatsApp de cumpleaños enviado al {celular}.'
+                
                 return jsonify({
                     'success': True, 
-                    'message': f'¡Contacto registrado y correo de cumpleaños enviado a {nombre}! 🎂'
+                    'message': mensaje_respuesta + ' 🎂'
                 })
             else:
                 return jsonify({
                     'success': False, 
-                    'error': f'Contacto registrado, pero error al enviar correo: {result}'
+                    'error': f'Contacto registrado, pero error al enviar mensajes: Correo: {result_correo}, WhatsApp: {result_whatsapp}'
                 }), 500
         else:
             return jsonify({
@@ -247,7 +356,7 @@ def revisar_cumpleanos():
         # Obtener contactos con cumpleaños hoy que no hayan recibido correo hoy
         hoy = date.today()
         cursor.execute("""
-            SELECT id, nombre, apellido, correo, fecha_nacimiento
+            SELECT id, nombre, apellido, correo, celular, fecha_nacimiento
             FROM contactos 
             WHERE strftime('%m-%d', fecha_nacimiento) = ?
             AND (ultimo_correo_enviado IS NULL OR ultimo_correo_enviado != ?)
@@ -266,25 +375,45 @@ def revisar_cumpleanos():
         errores = []
 
         for contacto in cumpleañeros:
-            contacto_id, nombre, apellido, correo, fecha_nacimiento = contacto
+            contacto_id, nombre, apellido, correo, celular, fecha_nacimiento = contacto
             
             try:
                 edad = calcular_edad(fecha_nacimiento)
                 asunto = f"¡Feliz Cumpleaños {nombre}! 🎂"
-                mensaje = crear_mensaje_cumpleanos(nombre, apellido, edad)
+                mensaje_correo = crear_mensaje_cumpleanos(nombre, apellido, edad)
                 
-                success, result = enviar_correo(correo, asunto, mensaje)
+                # Enviar correo electrónico
+                success_correo, result_correo = enviar_correo(correo, asunto, mensaje_correo)
                 
-                if success:
+                # Inicializar variables para WhatsApp
+                success_whatsapp = False
+                result_whatsapp = "No se envió WhatsApp (celular no proporcionado)"
+                
+                # Enviar WhatsApp si hay un número de celular registrado
+                if celular and celular.strip():
+                    mensaje_whatsapp = crear_mensaje_whatsapp(nombre, apellido, edad)
+                    success_whatsapp, result_whatsapp = enviar_whatsapp(celular, mensaje_whatsapp)
+                
+                if success_correo or success_whatsapp:
                     # Registrar en historial y actualizar fecha
                     conn = sqlite3.connect(DB_NAME)
                     cursor = conn.cursor()
                     
-                    cursor.execute("""
-                        INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
-                        VALUES (?, ?, ?, ?)
-                    """, (contacto_id, 'cumpleanos', asunto, mensaje))
+                    # Registrar el correo enviado
+                    if success_correo:
+                        cursor.execute("""
+                            INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                            VALUES (?, ?, ?, ?)
+                        """, (contacto_id, 'correo_cumpleanos', asunto, mensaje_correo))
                     
+                    # Registrar el WhatsApp enviado
+                    if success_whatsapp:
+                        cursor.execute("""
+                            INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                            VALUES (?, ?, ?, ?)
+                        """, (contacto_id, 'whatsapp_cumpleanos', 'Mensaje WhatsApp', mensaje_whatsapp))
+                    
+                    # Actualizar la fecha de último envío
                     cursor.execute("""
                         UPDATE contactos SET ultimo_correo_enviado = ? WHERE id = ?
                     """, (hoy.isoformat(), contacto_id))
@@ -293,11 +422,11 @@ def revisar_cumpleanos():
                     conn.close()
                     
                     enviados += 1
-                    print(f"✅ Correo enviado a {nombre} {apellido}")
+                    print(f"✅ Mensajes enviados a {nombre} {apellido}: Correo: {success_correo}, WhatsApp: {success_whatsapp}")
                     
                 else:
-                    errores.append(f"{nombre} {apellido}: {result}")
-                    print(f"❌ Error enviando a {nombre}: {result}")
+                    errores.append(f"{nombre} {apellido}: Correo: {result_correo}, WhatsApp: {result_whatsapp}")
+                    print(f"❌ Error enviando a {nombre}: Correo: {result_correo}, WhatsApp: {result_whatsapp}")
                     
             except Exception as e:
                 errores.append(f"{nombre} {apellido}: {str(e)}")
@@ -328,7 +457,7 @@ def obtener_contactos():
         
         # Obtener todos los contactos
         cursor.execute("""
-            SELECT id, nombre, apellido, correo, fecha_nacimiento, fecha_registro
+            SELECT id, nombre, apellido, correo, celular, fecha_nacimiento, fecha_registro
             FROM contactos 
             ORDER BY nombre, apellido
         """)
@@ -345,11 +474,12 @@ def obtener_contactos():
                 'nombre': contacto[1],
                 'apellido': contacto[2],
                 'correo': contacto[3],
-                'fecha_nacimiento': contacto[4],
-                'fecha_registro': contacto[5]
+                'celular': contacto[4],
+                'fecha_nacimiento': contacto[5],
+                'fecha_registro': contacto[6]
             }
             
-            if es_cumpleanos_hoy(contacto[4]):
+            if es_cumpleanos_hoy(contacto[5]):
                 cumpleanos_hoy += 1
             
             contactos.append(contacto_data)
@@ -420,7 +550,7 @@ def revisar_cumpleanos_automatico():
         
         hoy = date.today()
         cursor.execute("""
-            SELECT id, nombre, apellido, correo, fecha_nacimiento
+            SELECT id, nombre, apellido, correo, celular, fecha_nacimiento
             FROM contactos 
             WHERE strftime('%m-%d', fecha_nacimiento) = ?
             AND (ultimo_correo_enviado IS NULL OR ultimo_correo_enviado != ?)
@@ -433,23 +563,42 @@ def revisar_cumpleanos_automatico():
             print(f"🎂 Encontrados {len(cumpleañeros)} cumpleaños para hoy")
             
             for contacto in cumpleañeros:
-                contacto_id, nombre, apellido, correo, fecha_nacimiento = contacto
+                contacto_id, nombre, apellido, correo, celular, fecha_nacimiento = contacto
                 
                 try:
                     edad = calcular_edad(fecha_nacimiento)
                     asunto = f"¡Feliz Cumpleaños {nombre}! 🎂"
-                    mensaje = crear_mensaje_cumpleanos(nombre, apellido, edad)
+                    mensaje_correo = crear_mensaje_cumpleanos(nombre, apellido, edad)
                     
-                    success, result = enviar_correo(correo, asunto, mensaje)
+                    # Enviar correo electrónico
+                    success_correo, result_correo = enviar_correo(correo, asunto, mensaje_correo)
                     
-                    if success:
+                    # Inicializar variables para WhatsApp
+                    success_whatsapp = False
+                    result_whatsapp = "No se envió WhatsApp (celular no proporcionado)"
+                    
+                    # Enviar WhatsApp si hay un número de celular registrado
+                    if celular and celular.strip():
+                        mensaje_whatsapp = crear_mensaje_whatsapp(nombre, apellido, edad)
+                        success_whatsapp, result_whatsapp = enviar_whatsapp(celular, mensaje_whatsapp)
+                    
+                    if success_correo or success_whatsapp:
                         conn = sqlite3.connect(DB_NAME)
                         cursor = conn.cursor()
                         
-                        cursor.execute("""
-                            INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
-                            VALUES (?, ?, ?, ?)
-                        """, (contacto_id, 'cumpleanos_automatico', asunto, mensaje))
+                        # Registrar el correo enviado
+                        if success_correo:
+                            cursor.execute("""
+                                INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                                VALUES (?, ?, ?, ?)
+                            """, (contacto_id, 'correo_cumpleanos_auto', asunto, mensaje_correo))
+                        
+                        # Registrar el WhatsApp enviado
+                        if success_whatsapp:
+                            cursor.execute("""
+                                INSERT INTO historial_correos (contacto_id, tipo, asunto, mensaje)
+                                VALUES (?, ?, ?, ?)
+                            """, (contacto_id, 'whatsapp_cumpleanos_auto', 'Mensaje WhatsApp', mensaje_whatsapp))
                         
                         cursor.execute("""
                             UPDATE contactos SET ultimo_correo_enviado = ? WHERE id = ?
@@ -458,9 +607,9 @@ def revisar_cumpleanos_automatico():
                         conn.commit()
                         conn.close()
                         
-                        print(f"✅ Correo automático enviado a {nombre} {apellido}")
+                        print(f"✅ Mensajes automáticos enviados a {nombre} {apellido}: Correo: {success_correo}, WhatsApp: {success_whatsapp}")
                     else:
-                        print(f"❌ Error enviando correo automático a {nombre}: {result}")
+                        print(f"❌ Error enviando mensajes automáticos a {nombre}: Correo: {result_correo}, WhatsApp: {result_whatsapp}")
                         
                 except Exception as e:
                     print(f"💥 Error procesando {nombre}: {str(e)}")
@@ -502,7 +651,9 @@ def test():
         'status': 'OK',
         'base_datos': 'Conectada',
         'total_contactos': total_contactos,
-        'correo_origen': CORREO_ORIGEN
+        'correo_origen': CORREO_ORIGEN,
+        'whatsapp': 'Configurado',
+        'notificaciones': ['Correo electrónico', 'WhatsApp']
     })
 
 if __name__ == '__main__':
@@ -515,15 +666,21 @@ if __name__ == '__main__':
     iniciar_programador()
     
     print("📧 Correo origen configurado:", CORREO_ORIGEN)
+    print("📱 WhatsApp habilitado para contactos con celular")
+    print("   - Prefijos soportados: España (+34), Ecuador (+593), México (+52), Colombia (+57), etc.")
+    print("   - Formatos aceptados: +34612345678, 612345678 (España), 09XXXXXXXX (Ecuador)")
+    print("   - NOTA: WhatsApp abre el navegador y requiere confirmar manualmente presionando Enter")
+    print("   - Para probar números: python probar_whatsapp.py <numero>")
     print("🌐 Servidor disponible en: http://localhost:5000")
     print("📋 Endpoints disponibles:")
     print("   GET  / - Frontend principal")
     print("   POST /registrar-contacto - Registrar nuevo contacto")
     print("   POST /revisar-cumpleanos - Revisar cumpleaños manualmente")
     print("   GET  /obtener-contactos - Listar contactos")
-    print("   GET  /historial - Ver historial de correos")
+    print("   GET  /historial - Ver historial de correos/mensajes")
     print("   GET  /test - Probar sistema")
     print("⏰ Revisión automática programada cada hora y a las 9:00 AM")
+    print("💬 Los mensajes de WhatsApp necesitan WhatsApp Web activo")
     print("=" * 60)
     
     try:

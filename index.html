@@ -317,6 +317,11 @@
                     <label for="correo">📧 Correo Electrónico:</label>
                     <input type="email" id="correo" name="correo" placeholder="maria@ejemplo.com" required>
                 </div>
+                
+                <div class="form-group full-width">
+                    <label for="celular">📱 Número de Celular:</label>
+                    <input type="text" id="celular" name="celular" placeholder="123456789">
+                </div>
 
                 <div class="form-group full-width">
                     <label for="fechaNacimiento">🎂 Fecha de Nacimiento:</label>
@@ -381,6 +386,7 @@
                 nombre: document.getElementById('nombre').value.trim(),
                 apellido: document.getElementById('apellido').value.trim(),
                 correo: document.getElementById('correo').value.trim(),
+                celular: document.getElementById('celular').value.trim(),
                 fechaNacimiento: document.getElementById('fechaNacimiento').value
             };
 
@@ -479,6 +485,7 @@
                             ${esCumpleañosHoy ? '<span class="birthday-badge">🎂 ¡Cumpleaños!</span>' : ''}
                         </div>
                         <div class="contact-email">${contacto.correo}</div>
+                        <div class="contact-email">${contacto.celular ? '📱 ' + contacto.celular : ''}</div>
                         <div class="contact-date">
                             Nacimiento: ${formatearFecha(fechaNac)} 
                             (${calcularEdad(fechaNac)} años)
